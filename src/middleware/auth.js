@@ -14,7 +14,7 @@ const userAuth = async (req, res, next) => {
         }
 
         // Verify token
-        const decodedObj = await jwt.verify(token, "Gungun@Sharma$790");
+        const decodedObj = await jwt.verify(token,process.env.JWT_SECRET);
         const { _id } = decodedObj;
 
         // Find user
