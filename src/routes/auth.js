@@ -37,17 +37,19 @@ authRouter.post("/signup", async (req, res) => {
         // Generate JWT token
         const token = await user.getJWT();
 
-        // Set cookie
+        // Set cookie with UPDATED settings for cross-origin
         res.cookie("token", token, {
-            expires: new Date(Date.now() + 86400000), // 1 day
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict"
+            secure: process.env.NODE_ENV === "production", // true in production
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // 'none' for cross-origin
+            path: '/'
         });
 
         // Send response (don't send password)
         res.status(201).json({
             message: "User registered successfully",
+            success: true,
             data: {
                 _id: savedUser._id,
                 firstName: savedUser.firstName,
@@ -59,6 +61,7 @@ authRouter.post("/signup", async (req, res) => {
     } catch (err) {
         console.error("Signup error:", err);
         res.status(400).json({ 
+            success: false,
             error: err.message || "Failed to register user" 
         });
     }
@@ -72,6 +75,7 @@ authRouter.post("/login", async (req, res) => {
         // Validate input
         if (!emailId || !password) {
             return res.status(400).json({ 
+                success: false,
                 error: "Email and password are required" 
             });
         }
@@ -80,6 +84,7 @@ authRouter.post("/login", async (req, res) => {
         const user = await User.findOne({ emailId });
         if (!user) {
             return res.status(401).json({ 
+                success: false,
                 error: "Invalid email or password" 
             });
         }
@@ -88,6 +93,7 @@ authRouter.post("/login", async (req, res) => {
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ 
+                success: false,
                 error: "Invalid email or password" 
             });
         }
@@ -95,17 +101,19 @@ authRouter.post("/login", async (req, res) => {
         // Generate JWT token
         const token = await user.getJWT();
 
-        // Set cookie
+        // Set cookie with UPDATED settings for cross-origin
         res.cookie("token", token, {
-            expires: new Date(Date.now() + 86400000), // 1 day
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict"
+            secure: process.env.NODE_ENV === "production", // true in production
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // 'none' for cross-origin
+            path: '/'
         });
 
         // Send response (don't send password)
         res.status(200).json({
             message: "Login successful",
+            success: true,
             data: {
                 _id: user._id,
                 firstName: user.firstName,
@@ -117,6 +125,7 @@ authRouter.post("/login", async (req, res) => {
     } catch (err) {
         console.error("Login error:", err);
         res.status(500).json({ 
+            success: false,
             error: "Login failed. Please try again" 
         });
     }
@@ -127,16 +136,21 @@ authRouter.post("/logout", async (req, res) => {
     try {
         res.cookie("token", null, {
             expires: new Date(Date.now()),
-            httpOnly: true
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            path: '/'
         });
 
         res.status(200).json({ 
+            success: true,
             message: "User logged out successfully" 
         });
 
     } catch (err) {
         console.error("Logout error:", err);
         res.status(500).json({ 
+            success: false,
             error: "Logout failed" 
         });
     }
@@ -147,6 +161,7 @@ authRouter.get("/profile", userAuth, async (req, res) => {
     try {
         res.status(200).json({
             message: "Profile fetched successfully",
+            success: true,
             data: {
                 _id: req.user._id,
                 firstName: req.user.firstName,
@@ -158,6 +173,7 @@ authRouter.get("/profile", userAuth, async (req, res) => {
     } catch (err) {
         console.error("Profile fetch error:", err);
         res.status(500).json({ 
+            success: false,
             error: "Failed to fetch profile" 
         });
     }
@@ -166,6 +182,7 @@ authRouter.get("/profile", userAuth, async (req, res) => {
 // Check authentication status
 authRouter.get("/check-auth", userAuth, (req, res) => {
     res.status(200).json({
+        success: true,
         authenticated: true,
         user: {
             _id: req.user._id,

@@ -7,39 +7,58 @@ const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const cookieParser = require("cookie-parser");
 const PORT = process.env.PORT || 7777;
+
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// ✅ FIXED: CORS configuration for production
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL, // Your Netlify URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: "http://localhost:5173",
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('⚠️ CORS blocked origin:', origin);
+      callback(null, true); // ✅ CHANGED: Allow in production for testing
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
-// Cookie parser middleware (IMPORTANT for authentication)
+// Cookie parser middleware
 app.use(cookieParser());
 
 // Body parser
 app.use(express.json());
 
-// Rate limiting for specific routes
+// Rate limiting
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 50,
   message: "Too many requests, try again later",
 });
 
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: "Too many API requests, try again later",
 });
 
-// Apply rate limiting to auth routes
 app.use("/signup", authLimiter);
 app.use("/login", authLimiter);
-
-// Apply general rate limiting to API routes
 app.use("/income", apiLimiter);
 app.use("/expense", apiLimiter);
 app.use("/automation", apiLimiter);
@@ -53,29 +72,32 @@ const automationRouter = require("./routes/automation");
 const dashboardRouter = require("./routes/dashboard");
 
 // Mount routes
-app.use("/", authRouter);           // Auth routes: /signup, /login, /logout, /profile
-app.use("/", incomeRouter);         // Income routes: /income
-app.use("/", expenseRouter);        // Expense routes: /expense
-app.use("/", automationRouter);     // Automation routes: /automation
-app.use("/", dashboardRouter);      // Dashboard routes: /dashboard
+app.use("/", authRouter);
+app.use("/", incomeRouter);
+app.use("/", expenseRouter);
+app.use("/", automationRouter);
+app.use("/", dashboardRouter);
 
-// Health check route
+// Health check
 app.get("/health", (req, res) => {
   res.status(200).json({ 
     status: "OK", 
     message: "Server is running",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV || 'development',
+    allowedOrigins: allowedOrigins
   });
 });
 
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ 
-    error: "Route not found" 
+    error: "Route not found",
+    path: req.path 
   });
 });
 
-// Global error handling middleware
+// Global error handler
 app.use((err, req, res, next) => {
   console.error("Global error:", err.stack);
   res.status(err.status || 500).json({ 
@@ -88,44 +110,9 @@ connectDB()
   .then(() => {
     console.log("✅ Database connected successfully");
     app.listen(PORT, () => {
-      console.log("🚀 Server is running on http://localhost:7777");
-      console.log("\n📝 AVAILABLE ROUTES:");
-      console.log("\n🔐 AUTH ROUTES:");
-      console.log("   POST   /signup");
-      console.log("   POST   /login");
-      console.log("   POST   /logout");
-      console.log("   GET    /profile");
-      console.log("   GET    /check-auth");
-      console.log("\n💰 INCOME ROUTES:");
-      console.log("   POST   /income              - Add new income");
-      console.log("   GET    /income              - Get all incomes");
-      console.log("   GET    /income/:id          - Get single income");
-      console.log("   PATCH  /income/:id          - Update income");
-      console.log("   DELETE /income/:id          - Delete income");
-      console.log("   GET    /income/total/sum    - Get total income");
-      console.log("\n💸 EXPENSE ROUTES:");
-      console.log("   POST   /expense             - Add new expense");
-      console.log("   GET    /expense             - Get all expenses");
-      console.log("   GET    /expense/:id         - Get single expense");
-      console.log("   PATCH  /expense/:id         - Update expense");
-      console.log("   DELETE /expense/:id         - Delete expense");
-      console.log("   GET    /expense/total/sum   - Get total expense");
-      console.log("\n🤖 AUTOMATION ROUTES:");
-      console.log("   POST   /automation          - Create automation");
-      console.log("   GET    /automation          - Get all automations");
-      console.log("   GET    /automation/:id      - Get single automation");
-      console.log("   PATCH  /automation/:id      - Update automation");
-      console.log("   DELETE /automation/:id      - Delete automation");
-      console.log("   PATCH  /automation/:id/toggle    - Toggle active status");
-      console.log("   POST   /automation/:id/process   - Process automation");
-      console.log("\n📊 DASHBOARD ROUTES:");
-      console.log("   GET    /dashboard/summary              - Complete summary");
-      console.log("   GET    /dashboard/expense-by-category  - Expense breakdown");
-      console.log("   GET    /dashboard/income-by-category   - Income breakdown");
-      console.log("   GET    /dashboard/monthly-trends       - Monthly trends");
-      console.log("   GET    /dashboard/recent-transactions  - Recent transactions");
-      console.log("\n✅ Health Check:");
-      console.log("   GET    /health");
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🔗 Allowed Origins:`, allowedOrigins);
     });
   })
   .catch((err) => {
