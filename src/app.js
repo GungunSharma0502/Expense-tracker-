@@ -6,7 +6,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const cookieParser = require("cookie-parser");
-
+const PORT = process.env.PORT || 7777;
 // Security middleware
 app.use(helmet());
 
@@ -87,7 +87,7 @@ app.use((err, req, res, next) => {
 connectDB()
   .then(() => {
     console.log("✅ Database connected successfully");
-    app.listen(7777, () => {
+    app.listen(PORT, () => {
       console.log("🚀 Server is running on http://localhost:7777");
       console.log("\n📝 AVAILABLE ROUTES:");
       console.log("\n🔐 AUTH ROUTES:");
